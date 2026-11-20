@@ -55,7 +55,17 @@ jobs:
               xcrun simctl launch "$DEVICE" com.eldrin.EveryMango2 -tab $tab -skin $skin
               sleep 6
               xcrun simctl io "$DEVICE" screenshot "shots/$skin-$tab.png"
+              if xcrun simctl spawn "$DEVICE" launchctl list | grep -q EveryMango2; then echo "RUNNING $skin-$tab"; else echo "NOT RUNNING $skin-$tab"; fi
             done
+          done
+
+      - name: Preview
+        continue-on-error: true
+        run: |
+          ls -l shots
+          for n in classic-main classic-seq; do
+            sips -Z 620 -s format jpeg -s formatOptions 30 shots/$n.png --out /tmp/$n.jpg >/dev/null
+            echo "B64 $n $(base64 -i /tmp/$n.jpg)"
           done
 
       - uses: actions/upload-artifact@v4
