@@ -96,6 +96,11 @@ final class AppModel {
         Haptics.enabled = loadedStore.prefs.haptics
         calendar.setHidden(loadedStore.prefs.hiddenCalendarIDs)
         calendar.ensureLoaded(around: today)
+        #if DEBUG
+        // Launch arguments for screenshots and UI checks: -tab seq -skin dark
+        if let name = UserDefaults.standard.string(forKey: "tab"), let wanted = AppTab(rawValue: name) { tab = wanted }
+        if let skinName = UserDefaults.standard.string(forKey: "skin") { loadedStore.prefs.darkSkin = skinName == "dark" }
+        #endif
         observer = StoreObserver(store: loadedStore) { [weak self] in
             self?.scheduleSave()
         }

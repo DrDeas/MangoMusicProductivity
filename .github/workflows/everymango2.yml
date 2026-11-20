@@ -1,0 +1,68 @@
+name: EveryMango2
+
+on:
+  push:
+    paths:
+      - 'EveryMango2/**'
+      - '.github/workflows/everymango2.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: EveryMango2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: EveryMango2
+
+      - name: Core tests
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tail -15
+
+      - name: Build app for the simulator
+        run: |
+          xcodebuild -version
+          xcodebuild -project EveryMango2.xcodeproj -target EveryMango2 -configuration Debug \
+            -sdk iphonesimulator ARCHS=arm64 CODE_SIGNING_ALLOWED=NO SYMROOT="$PWD/build" build > build.log 2>&1 || true
+          if grep -q "BUILD SUCCEEDED" build.log; then
+            echo "BUILD SUCCEEDED"
+            grep -E "warning:" build.log | grep -v "appintents" | sort -u | head -40 || true
+          else
+            echo "---- BUILD FAILED ----"
+            grep -E "error" build.log | sort -u | head -150
+            tail -25 build.log
+            exit 1
+          fi
+
+      - name: Screenshots
+        continue-on-error: true
+        run: |
+          APP="$PWD/build/Debug-iphonesimulator/EveryMango2.app"
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone 1[56]( Pro)? \(" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+          echo "Device: $DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          mkdir -p shots
+          for skin in classic dark; do
+            for tab in main dump seq boards cal; do
+              xcrun simctl terminate "$DEVICE" com.eldrin.EveryMango2 || true
+              xcrun simctl launch "$DEVICE" com.eldrin.EveryMango2 -tab $tab -skin $skin
+              sleep 6
+              xcrun simctl io "$DEVICE" screenshot "shots/$skin-$tab.png"
+            done
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: everymango2-screenshots-and-log
+          path: |
+            EveryMango2/shots
+            EveryMango2/build.log
+          if-no-files-found: ignore
