@@ -34,8 +34,8 @@ jobs:
             grep -E "warning:" build.log | grep -v "appintents" | sort -u | head -40 || true
           else
             echo "---- BUILD FAILED ----"
-            grep -E "error" build.log | sort -u | head -150
-            tail -25 build.log
+            grep -E "error" build.log | sort -u | head -80
+            tail -5 build.log
             exit 1
           fi
 

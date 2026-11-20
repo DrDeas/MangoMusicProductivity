@@ -149,26 +149,7 @@ struct SynthKnob: View {
         let c = skin.panel(style)
         VStack(spacing: 3) {
             Canvas { ctx, sz in
-                let center = CGPoint(x: sz.width / 2, y: sz.height / 2)
-                let radius = min(sz.width, sz.height) / 2 - 3
-                let start = Angle.degrees(135), sweep = 270.0
-                var track = Path()
-                track.addArc(center: center, radius: radius, startAngle: start, endAngle: start + .degrees(sweep), clockwise: false)
-                ctx.stroke(track, with: .color(c.groove.opacity(0.9)), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                var arc = Path()
-                arc.addArc(center: center, radius: radius, startAngle: start, endAngle: start + .degrees(sweep * fraction), clockwise: false)
-                ctx.stroke(arc, with: .color(skin.accent), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-
-                let face = CGRect(x: center.x - radius + 6, y: center.y - radius + 6, width: (radius - 6) * 2, height: (radius - 6) * 2)
-                ctx.fill(Path(ellipseIn: face), with: .linearGradient(Gradient(colors: skin.handle),
-                                                                     startPoint: CGPoint(x: face.midX, y: face.minY),
-                                                                     endPoint: CGPoint(x: face.midX, y: face.maxY)))
-                ctx.stroke(Path(ellipseIn: face), with: .color(skin.handleStroke), lineWidth: 1)
-                let angle = (135 + sweep * fraction) * .pi / 180
-                var pointer = Path()
-                pointer.move(to: CGPoint(x: center.x + cos(angle) * (radius - 15), y: center.y + sin(angle) * (radius - 15)))
-                pointer.addLine(to: CGPoint(x: center.x + cos(angle) * (radius - 7), y: center.y + sin(angle) * (radius - 7)))
-                ctx.stroke(pointer, with: .color(dragStart == nil ? skin.handleGrip : skin.accent), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                drawKnob(&ctx, size: sz, track: c.groove)
             }
             .frame(width: size, height: size)
             .contentShape(Circle())
@@ -199,6 +180,42 @@ struct SynthKnob: View {
         .accessibilityAdjustableAction { direction in
             set(value + (direction == .increment ? step : -step))
         }
+    }
+
+    private func drawKnob(_ ctx: inout GraphicsContext, size sz: CGSize, track trackColor: Color) {
+        let center = CGPoint(x: sz.width / 2, y: sz.height / 2)
+        let radius: CGFloat = min(sz.width, sz.height) / 2 - 3
+        let sweep: Double = 270
+        let start = Angle.degrees(135)
+        let valueEnd = Angle.degrees(135 + sweep * fraction)
+        let fullEnd = Angle.degrees(135 + sweep)
+        let stroke = StrokeStyle(lineWidth: 3, lineCap: .round)
+
+        var track = Path()
+        track.addArc(center: center, radius: radius, startAngle: start, endAngle: fullEnd, clockwise: false)
+        ctx.stroke(track, with: .color(trackColor.opacity(0.9)), style: stroke)
+
+        var arc = Path()
+        arc.addArc(center: center, radius: radius, startAngle: start, endAngle: valueEnd, clockwise: false)
+        ctx.stroke(arc, with: .color(skin.accent), style: stroke)
+
+        let faceRadius: CGFloat = radius - 6
+        let face = CGRect(x: center.x - faceRadius, y: center.y - faceRadius, width: faceRadius * 2, height: faceRadius * 2)
+        let top = CGPoint(x: face.midX, y: face.minY)
+        let bottom = CGPoint(x: face.midX, y: face.maxY)
+        ctx.fill(Path(ellipseIn: face), with: .linearGradient(Gradient(colors: skin.handle), startPoint: top, endPoint: bottom))
+        ctx.stroke(Path(ellipseIn: face), with: .color(skin.handleStroke), lineWidth: 1)
+
+        let radians: Double = (135 + sweep * fraction) * Double.pi / 180
+        let dx = CGFloat(cos(radians))
+        let dy = CGFloat(sin(radians))
+        let inner: CGFloat = radius - 15
+        let outer: CGFloat = radius - 7
+        var pointer = Path()
+        pointer.move(to: CGPoint(x: center.x + dx * inner, y: center.y + dy * inner))
+        pointer.addLine(to: CGPoint(x: center.x + dx * outer, y: center.y + dy * outer))
+        let pointerColor: Color = dragStart == nil ? skin.handleGrip : skin.accent
+        ctx.stroke(pointer, with: .color(pointerColor), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
     }
 
     private func set(_ raw: Double) {
